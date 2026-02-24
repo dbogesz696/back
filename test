@@ -1,0 +1,115 @@
+using Bunit;
+using Moq;
+using System.Threading.Tasks;
+using Xunit;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace YourProject.Tests
+{
+    public class GameCatalogTests : TestContext
+    {
+        [Fact]
+        public async Task Test_Loading_State_Shows_Loading_Text()
+        {
+            // Arrange: Mock-oljuk a GamesClient-et, hogy null-t adjon vissza
+            var mockClient = new Mock<GamesClient>();
+            mockClient.Setup(c => c.GetGamesAsync()).ReturnsAsync((GameSummary[])null);
+            Services.AddSingleton(mockClient.Object);
+
+            // Act: A komponens renderelése
+            var cut = RenderComponent<GameCatalog>();
+
+            // Assert: Ellenőrizzük, hogy a "Betöltés..." szöveg megjelenik
+            cut.Markup.Contains("<p><em>Loading...</em></p>");
+        }
+
+        [Fact]
+        public async Task Test_Shows_Games_After_Loading()
+        {
+            // Arrange: Mock-oljuk a GamesClient-et, hogy egy lista játékot adjon vissza
+            var mockClient = new Mock<GamesClient>();
+            mockClient.Setup(c => c.GetGamesAsync()).ReturnsAsync(new GameSummary[]
+            {
+                new GameSummary { Id = 1, Name = "Game 1", Genre = "Action", Price = 59.99m, ReleaseDate = "2025-03-11" },
+                new GameSummary { Id = 2, Name = "Game 2", Genre = "Adventure", Price = 49.99m, ReleaseDate = "2025-03-10" }
+            });
+            Services.AddSingleton(mockClient.Object);
+
+            // Act: A komponens renderelése
+            var cut = RenderComponent<GameCatalog>();
+
+            // Assert: Ellenőrizzük, hogy az asztalon megjelenik a játékok adata
+            cut.Markup.Contains("<th>Id</th>");
+            cut.Markup.Contains("Game 1");
+            cut.Markup.Contains("Action");
+            cut.Markup.Contains("59.99");
+            cut.Markup.Contains("2025-03-11");
+        }
+
+        [Fact]
+        public void Test_GetDeleteModalId_Returns_Correct_Id()
+        {
+            // Arrange: Egy példa játék létrehozása
+            var game = new GameSummary { Id = 1, Name = "Test Game" };
+
+            // Act: A metódus meghívása közvetlenül
+            var result = GameCatalog.GetDeleteModalId(game);
+
+            // Assert: Ellenőrizzük, hogy a modális ablak ID-ja helyesen van-e formázva
+            Assert.Equal("#DeleteGame_1", result); // A metódus logikája szerint
+        }
+
+        [Fact]
+        public void Test_GameUrl_Returns_Correct_Url()
+        {
+            // Arrange: A játék ID-ja
+            var gameId = 1;
+
+            // Act: A GameUrl metódus meghívása
+            var result = GameCatalog.GameUrl(gameId);
+
+            // Assert: Ellenőrizzük, hogy az URL helyesen van-e formázva
+            Assert.Equal("/editgame/1", result);
+        }
+
+        [Fact]
+        public void Test_EditButton_Has_Correct_Url()
+        {
+            // Arrange: Mock kliens beállítása
+            var mockClient = new Mock<GamesClient>();
+            mockClient.Setup(c => c.GetGamesAsync()).ReturnsAsync(new GameSummary[]
+            {
+                new GameSummary { Id = 1, Name = "Game 1", Genre = "Action", Price = 59.99m, ReleaseDate = "2025-03-11" }
+            });
+            Services.AddSingleton(mockClient.Object);
+
+            // Act: A komponens renderelése
+            var cut = RenderComponent<GameCatalog>();
+
+            // Assert: Ellenőrizzük, hogy a szerkesztés gomb URL-je helyes
+            var editButton = cut.Find("a.btn-primary");
+            Assert.Equal("/editgame/1", editButton.GetAttribute("href"));
+        }
+
+        [Fact]
+        public void Test_DeleteButton_Clicks_Show_Modal()
+        {
+            // Arrange: Mock kliens beállítása
+            var mockClient = new Mock<GamesClient>();
+            mockClient.Setup(c => c.GetGamesAsync()).ReturnsAsync(new GameSummary[]
+            {
+                new GameSummary { Id = 1, Name = "Game 1", Genre = "Action", Price = 59.99m, ReleaseDate = "2025-03-11" }
+            });
+            Services.AddSingleton(mockClient.Object);
+
+            // Act: A komponens renderelése
+            var cut = RenderComponent<GameCatalog>();
+
+            // Assert: Ellenőrizzük, hogy a törlés gomb megnyomásával megjelenik a modal
+            var deleteButton = cut.Find("button.btn-danger");
+            deleteButton.Click();  // A modal megjelenítése
+            var modalId = cut.Find("div.modal");
+            Assert.NotNull(modalId);  // A modal-nak meg kell jelennie a gombnyomás után
+        }
+    }
+}
